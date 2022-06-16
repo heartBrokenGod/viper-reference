@@ -1,0 +1,11 @@
+server:
+    timeout: 1m0s
+    port: 8090
+handler:
+    validaterequest: false
+service:
+    allowinvaliduserName: true
+mysql:
+    user: root
+    password: password
+    database: viper_test_db
