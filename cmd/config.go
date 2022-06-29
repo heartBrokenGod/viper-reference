@@ -2,8 +2,10 @@ package main
 
 import (
 	"flag"
+	"log"
 	"strings"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/go-playground/validator"
 	"github.com/heartBrokenGod/viper-reference/api/handler"
 	"github.com/heartBrokenGod/viper-reference/api/server"
@@ -25,6 +27,7 @@ func initConfig() (*Config, error) {
 		Server:  server.NewDefaultConfig(),
 		Handler: handler.NewDefaultConfig(),
 		MySQL:   repo.NewDefaultConfig(),
+		Service: service.NewDefaultConfig(),
 	}
 	viper.SetConfigName("config")             // set the config file name
 	viper.SetConfigType("yaml")               // set the config file format
@@ -58,7 +61,37 @@ func initConfig() (*Config, error) {
 	if err != nil {
 		return nil, err
 	}
-	// viper.WriteConfigAs("./copy_config.json") // for the demo purpose
+
+	viper.WatchConfig() // starts watching over config change
+	viper.OnConfigChange(func(in fsnotify.Event) {
+		log.Println(in.Op, " operation on ", in.Name)
+		// simple logic to update the config value injected in the individual component
+
+		updatedConfig := &Config{ // Create the instance of the composed configuration struct
+			Server:  server.NewDefaultConfig(),
+			Handler: handler.NewDefaultConfig(),
+			MySQL:   repo.NewDefaultConfig(),
+			Service: service.NewDefaultConfig(),
+		}
+		viper.Unmarshal(updatedConfig)
+
+		// validate the updated config
+		validate := validator.New()
+		err = validate.Struct(updatedConfig)
+		if err != nil {
+			log.Println("could not update the config due to validation errors: ", err)
+			return
+		}
+
+		*config.Server = *updatedConfig.Server
+		*config.Handler = *updatedConfig.Handler
+		*config.MySQL = *updatedConfig.MySQL
+		*config.Service = *updatedConfig.Service
+
+		viper.WriteConfigAs("./copy_config.json") // for the demo purpose
+
+	})
+	viper.WriteConfigAs("./copy_config.json") // for the demo purpose
 
 	return config, nil
 }
